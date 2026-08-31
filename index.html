@@ -419,6 +419,37 @@
 
 </div>
 
+<!-- 사업 수정 모달 -->
+<div class="modal fade" id="editProjectModal" tabindex="-1" aria-labelledby="editProjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editProjectModalLabel"><i class="bi bi-pencil-square me-2"></i>사업 정보 수정</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editProjectId">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">사업명</label>
+                    <input type="text" class="form-control" id="editProjectName" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">산출내역 (비고)</label>
+                    <input type="text" class="form-control" id="editProjectDesc">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">예산현액 (원)</label>
+                    <input type="text" class="form-control amount-input" id="editProjectBudget" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="saveProjectEdit()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -532,6 +563,53 @@
         if(confirm('이 사업을 삭제하시겠습니까?')) { state.projects = state.projects.filter(p => p.id !== projectId); saveData(); }
     }
 
+    // 사업 수정 모달 열기
+    function editProject(projectId) {
+        const project = state.projects.find(p => p.id === projectId);
+        if (!project) return alert('해당 사업을 찾을 수 없습니다.');
+
+        document.getElementById('editProjectId').value = project.id;
+        document.getElementById('editProjectName').value = project.name;
+        document.getElementById('editProjectDesc').value = project.desc || '';
+        document.getElementById('editProjectBudget').value = formatCurrency(project.budget);
+
+        // 모달 내 금액 입력 필드에 콤마 자동 적용 바인딩
+        bindAmountInputs();
+
+        const modal = new bootstrap.Modal(document.getElementById('editProjectModal'));
+        modal.show();
+    }
+
+    // 사업 수정 저장
+    function saveProjectEdit() {
+        const projectId = document.getElementById('editProjectId').value;
+        const name = document.getElementById('editProjectName').value.trim();
+        const desc = document.getElementById('editProjectDesc').value.trim();
+        const budget = parseCurrency(document.getElementById('editProjectBudget').value);
+
+        if (!name || isNaN(budget) || budget <= 0) return alert('올바른 사업명과 예산현액을 입력해주세요.');
+
+        // 예산현액이 이미 집행된 금액보다 적은 경우 경고
+        const totalExpense = state.expenses.filter(e => e.projectId === projectId).reduce((sum, e) => sum + e.amount, 0);
+        if (budget < totalExpense && !confirm(`현재 총 지출액(${formatCurrency(totalExpense)}원)보다 적은 예산현액입니다.\n계속하시겠습니까?`)) return;
+
+        const project = state.projects.find(p => p.id === projectId);
+        if (!project) return alert('해당 사업을 찾을 수 없습니다.');
+
+        project.name = name;
+        project.desc = desc;
+        project.budget = budget;
+
+        saveData();
+
+        // 모달 닫기
+        const modalEl = document.getElementById('editProjectModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        alert('사업 정보가 수정되었습니다.');
+    }
+
     /* ==========================================
        [2] 신규 기능 영역 (저장내역/업체 선결제)
        ========================================== */
@@ -637,7 +715,10 @@
                 <td class="fw-bold" style="font-size:0.9rem;">${p.name}</td>
                 <td class="text-secondary" style="font-size:0.85rem;">${p.desc||'-'}</td>
                 <td class="text-end font-monospace" style="font-size:0.9rem;">${formatCurrency(p.budget)}</td>
-                <td class="text-center"><button class="btn btn-sm btn-outline-danger py-0 px-2 action-btn" onclick="deleteProject('${p.id}')"><i class="bi bi-trash"></i></button></td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary py-0 px-2 action-btn me-1" onclick="editProject('${p.id}')" title="수정"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger py-0 px-2 action-btn" onclick="deleteProject('${p.id}')" title="삭제"><i class="bi bi-trash"></i></button>
+                </td>
             </tr>`);
         });
     }
